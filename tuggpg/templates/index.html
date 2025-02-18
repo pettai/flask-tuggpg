@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1> {% block title %} Welcome to the keysigning party {% endblock %} </h1>
+  <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+
+  {% if gpg_keys is defined and gpg_keys|length > 0 %}
+    <h5>{% block allgpgkeys %} Current uploaded keys on the keyring {% endblock %}</h5>
+
+    <table style="width:fit-content;">
+      <!-- table header -->
+      {% if gpg_keys %}
+      <tr>
+         {% for key in gpg_keys[0] %}
+            {% if key != 'curve' %}
+               <th> {{ key }} </th>
+            {% endif %}
+         {% endfor %}
+      </tr>
+      {% endif %}
+
+      <!-- table rows -->
+      {% for dict_item in gpg_keys %}
+      <tr>
+         {% for key, value in dict_item.items() %}
+            {% if key != 'curve' %}
+               {% if 'uids' in key %}
+                  <td>
+                  {% for uid in value %}
+                     {{ uid|escape }} <br>
+                  {% endfor %}
+                  </td>
+               {% elif 'keyid' in key %}
+                  <td><pre><a href="{{ url_for('fetch_keys') }}/{{ value }}">{{ value }}</a></pre></td>
+               {% elif 'date' in key %}
+                  <td> {{ value.strftime('%Y-%m-%d')  }} </td>
+               {% elif 'expires' in key %}
+                  {% if value == 'expired' %}
+                     <td><div style="background: orangered; text-align: center;" title="Key has expired! it can't be used for signing">{{ value }}</div></td>
+                  {% elif value == 'unlimited' %}
+                     <td><div style="background: orange; text-align: center;" title="No expiration date set! consider setting an expiration date">{{ value }}</div></td>
+                  {% else %}
+		     {% set days_until_expiry = (value - current_time).days %}
+                     {% if days_until_expiry <= 30 %}
+                        <td><div style="background: orange; text-align: center;" title="Key is closing expiration date! consider updating expiration date or creating a new key">{{ value.strftime('%Y-%m-%d') }}</div></td>
+                     {% else %}
+                        <td><div style="text-align: center;">{{ value.strftime('%Y-%m-%d') }} {{now}}</td>
+                     {% endif %}
+                  {% endif %}
+               {% elif 'sigs' in key %}
+                  <td>
+                  {% set total_sigs = value|length if value is defined else 0 %}
+		  {% set ns = namespace(seen_sigs=[]) %}
+                  {% if value is defined and value|length > 0 %}
+		     {% for sig in value %}
+                        {% for gpgkey in gpg_keys %}
+                           {% if sig == gpgkey['keyid'] and sig not in ns.seen_sigs %}
+			      <pre>{{ sig }}</pre><br>
+			      {% set ns.seen_sigs = ns.seen_sigs + [sig] %}
+                           {% endif %}
+                        {% endfor %}
+                     {% endfor %}
+		     <div style="text-align: center;">({{ total_sigs }} total)</div>
+                  {% else %}
+		     <div style="background: lightgrey; text-align: center;" title="Concider getting some of your peers to sign your key">0 signatures</div>
+                  {% endif %}
+                  </td>
+               {% elif 'algo' in key %}
+                     <td> {{ value }} </td>
+               {% elif 'fingerprint' in key %}
+                     <td><pre>{{ value }}</pre></td>
+               {% elif 'length' in key %}
+                  {% if dict_item.get('curve') %}
+                     {% if value|int() < 224 %}
+                        <td><div style="background: orange; text-align: center;" title="Key size is concidered weak! concider making a new key with bigger key size"> {{ value }} </div></td>
+                     {% else %}
+                        <td><div style="text-align: center;"> {{ value }} </div></td>
+                     {% endif %}
+                  {% else %}
+                     {% if value|int() < 1025 %}
+                        <td><div style="background: orangered; text-align: center;" title="Key size is concidered weak! create a new key with bigger key size"> {{ value }} </div></td>
+                     {% elif value|int() < 2049 %}
+                        <td><div style="background: orange; text-align: center;" title="Key size is concidered weak! concider making a new key with bigger key size"> {{ value }} </div></td>
+                     {% else %}
+                        <td><div style="text-align: center;"> {{ value }} </div></td>
+                     {% endif %}
+                  {% endif %}
+               {% else %}
+                  <td> {{ value }} </td>
+               {% endif %}
+            {% endif %}
+         {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+    <tr>
+      <div>
+    </tr>
+
+    <div style="text-align: left;"><h5> {% block download %} Download the keysigning party keyring 
+        <a href="{{ url_for('fetch_keys') }}" class="badge badge-secondary"> here </a>
+	{% endblock %}</h5></div>
+    <br>
+
+    <h5>{% block pastekey %} Add your key to join the party {% endblock %}</h5>
+    <form action="{{ url_for('index') }}" method="post">
+        <textarea name="gpgkey" cols="80" rows="10" placeholder="Paste your GPG-key here (output from gpg -a --export <your_email_or_keyid>)"></textarea>
+        <div>
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+
+  {% else %}
+    <h5>{% block nogpgkey %} The keyring is empty! start a new keysigning party {% endblock %}</h5>
+    <form action="{{ url_for('index') }}" method="post">
+        <textarea name="gpgkey" cols="80" rows="25" placeholder="Paste your GPG-key here (output from gpg -a --export <your_email_or_keyid>)"></textarea>
+        <div>
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+
+  {% endif %}
+{% endblock %}

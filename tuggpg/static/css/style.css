@@ -1,0 +1,31 @@
+h1 {
+    border: 2px #eee solid;
+    color: brown;
+    text-align: center;
+    padding: 10px;
+}
+table, th {
+    border: 1px solid black;
+    text-align: center;
+    padding: 5px;
+    width: fit-content;
+    white-space: nowrap;
+}
+td {
+    border: 1px solid black;
+    text-align: left;
+    padding: 5px;
+    width: fit-content;
+    white-space: nowrap;
+}
+textarea {
+    background-color:linen;
+    padding:1;
+    font-family: monospace;
+    font-size: small;
+    width: 80ch;
+}
+pre {
+    display: inline;
+}
+.container {width:100%; max-width:none; padding-left:60px; padding-right:60px}

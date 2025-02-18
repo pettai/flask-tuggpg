@@ -1,0 +1,4 @@
+Flask>=3.0.2
+werkzeug>=3.0.1
+python-gnupg @ git+https://github.com/vsajip/python-gnupg@3fb50be
+gunicorn>=20.1.0
