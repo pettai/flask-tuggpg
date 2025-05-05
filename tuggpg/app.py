@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 
 import gnupg
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, render_template, request, session, redirect, url_for
 from werkzeug.exceptions import abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -21,9 +21,6 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 
 PATH = "/opt/flask-tuggpg/gnupg"
-KEYRING = "keysigningparty"
-GNUPG = gnupg.GPG(gnupghome=PATH, keyring=KEYRING + ".kbx")
-GNUPG.encoding = "utf-8"
 KEY_ORDER = {
     "keyid": 1,
     "algo": 2,
@@ -35,15 +32,34 @@ KEY_ORDER = {
     "sigs": 8,
     "fingerprint": 9,
 }
+KEYRINGS = ["keysigningparty", "yetanotherparty", "otherparty"]
+app.secret_key = '<a-very-secret-key>'
 
+def get_gnupg(keyring):
+    return gnupg.GPG(gnupghome=PATH, keyring=keyring + ".kbx")
 
-@app.route("/", methods=["GET", "POST"])
+def get_current_keyring():
+    return session.get('keyring', KEYRINGS[0])
+
+@app.route("/", methods=["GET"])
 def index():
+    return render_template("index.html")
+
+
+@app.route("/main", methods=["GET", "POST"])
+def main():
     remote_user = request.headers.get("X_REMOTE_USER", "anonymous")
     remote_addr = request.headers.get("X_FORWARDED_FOR")
 
     current_time = datetime.now()
 
+    keyring = get_current_keyring()
+    if not keyring:
+        pass
+
+    GNUPG = get_gnupg(keyring)
+    GNUPG.encoding = "utf-8"
+    
     public_keys = GNUPG.list_keys(sigs=True)
     filtered_keys = []
     desired_keys = ["fingerprint", "uids", "length", "curve", "keyid", "date", "expires", "sigs", "algo"]
@@ -127,7 +143,7 @@ def index():
         sorted_dict = dict(sorted(key_dict.items(), key=lambda x: KEY_ORDER.get(x[0], 999)))
         sorted_keys.append(sorted_dict)
 
-    return render_template("index.html", gpg_keys=sorted_keys, remote_user=remote_user, current_time=current_time)
+    return render_template("main.html", gpg_keys=sorted_keys, remote_user=remote_user, current_time=current_time, keyrings=KEYRINGS, current_keyring=keyring)
 
 
 # "Old" keyring way of downloading keyring/individual keys
@@ -136,6 +152,13 @@ def index():
 def fetch_keys(keyid=None):
     remote_user = request.headers.get("X_REMOTE_USER", "anonymous")
     remote_addr = request.headers.get("X_FORWARDED_FOR")
+
+    keyring = get_current_keyring()
+    if not keyring:
+        pass
+    
+    GNUPG = get_gnupg(keyring)
+    GNUPG.encoding = "utf-8"
 
     if keyid is not None:
         ascii_armored_public_keys = GNUPG.export_keys(keyid)
@@ -158,8 +181,10 @@ def fetch_keys(keyid=None):
             return Response(
                 ascii_armored_public_keys,
                 mimetype="text/plain",
-                headers={"Content-disposition": "attachment; filename=" + KEYRING + ".pub"},
+                headers={"Content-disposition": "attachment; filename=" + keyring + ".pub"},
             )
+        else:
+            return abort(404)
 
 
 # GitHub etc. way of listing gpg key via REST
@@ -175,6 +200,14 @@ def fetch_user_key(uid=None):
             )
         else:
             return abort(404)
+
+
+@app.route("/keyring/<keyring>")
+def keyring(keyring):
+    if keyring not in KEYRINGS:
+        abort(404)
+    session['keyring'] = keyring
+    return redirect(request.referrer or url_for('main'))
 
 
 def space_out_text(text: str, n: int) -> str:
