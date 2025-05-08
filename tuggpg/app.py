@@ -191,6 +191,14 @@ def fetch_keys(keyid=None):
 @app.route("/user", defaults={"keyid": None}, methods=["GET"])
 @app.route("/user/<uid>.gpg", methods=["GET"])
 def fetch_user_key(uid=None):
+
+    keyring = get_current_keyring()
+    if not keyring:
+        pass
+    
+    GNUPG = get_gnupg(keyring)
+    GNUPG.encoding = "utf-8"
+
     if uid is not None:
         ascii_armored_public_keys = GNUPG.export_keys(uid)
         if "BEGIN PGP PUBLIC KEY BLOCK" in ascii_armored_public_keys:
