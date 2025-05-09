@@ -10,7 +10,7 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
 
   {% if gpg_keys is defined and gpg_keys|length > 0 %}
-    <h5>{% block allgpgkeys %} Current uploaded keys on the {{ current_keyring }} keyring {% endblock %}</h5>
+    <h5>{% block allgpgkeys %} Currently {{ gpg_keys|count }} keys in the {{ current_keyring }} keyring {% endblock %}</h5>
 
     <table style="width:fit-content;">
       <!-- table header -->
